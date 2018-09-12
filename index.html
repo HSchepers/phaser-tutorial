@@ -34,29 +34,41 @@
 
     var game = new Phaser.Game(config);
     var platforms;
-    var player
+    var player;
+    var cursor;
 
-    function preload ()
-    {
+    function preload (){
+      //this.load.image(name, path) for objects without animation
       this.load.image('sky', 'assets/images/sky.png');
       this.load.image('ground', 'assets/images/platform.png');
       this.load.image('star', 'assets/images/star.png');
       this.load.image('bomb', 'assets/images/bomb.png');
-      this.load.sprite('dude', 'assets/images/dude.png', { frameWidth: 32, frameHeight:48 });
-    }
+      //this.load.spritesheet(name, path) for objects with animation
+      this.load.spritesheet('dude', 'assets/images/dude.png', { frameWidth: 32, frameHeight:48 });
+    };
 
-    function create ()
-    {
-      this.add.image(0, 0, 'sky').setOrigin(0, 0); //setOrigin -> Ankerpunkt ist oben links im Bild (Default: Mitte)
+    function create (){
+      //this.add.image(X, Y, name) to add the loaded image 'name' in position X/Y
+      //setOrigin(0, 0) -> sets anchor to the top left of the image (Default: Middle)
+      this.add.image(0, 0, 'sky').setOrigin(0, 0); //Background
+      //assinging the staticGroup to the platforms so the can't move
       platforms = this.physics.add.staticGroup();
       platforms.create(600, 400, 'ground');
       platforms.create(50, 250, 'ground');
       platforms.create(750, 220, 'ground');
-      player = this.physics.add.sprite(100, 450, 'dude');
+      //after scaling an object it must be refreshed for the physics to apply
+      platforms.create(400, 568, 'ground').setScale(2).refreshBody();
+
+      player = this.physics.add.sprite(100, 450, 'dude'); //Player
       player.setBounce(0.2);
       player.setCollideWorldBounds(true);
       player.body.setGravityY(300);
-      // Animation for going left
+
+      //this.anims.create() for creating an animation
+      /*The 'left' animation uses frames 0, 1, 2 and 3
+        of the defined spritesheet 'dude' and runs at
+        10 frames per second. The 'repeat -1' value
+        tells the animation to loop. */
       this.anims.create({
         key: 'left',
         frames: this.anims.generateFrameNumbers('dude', {start: 0, end: 3}),
@@ -78,11 +90,39 @@
       });
       // Collosion Test
       this.physics.add.collider(player, platforms);
-    }
 
-    function update ()
-    {
-    }
+      /*This populates the cursors object with four properties:
+        up, down, left, right */
+      cursor = this.input.keyboard.createCursorKeys();
+    };
+
+    function update (){
+      /*If the player holds down the left/right key
+        the Avatar receives a Velocity-Boost in that
+        direction. Upon releasing either key the Boost
+        is stopped. Also the respective animations for
+        each movement is played */
+      if(cursor.left.isDown){
+        player.setVelocityX(-160);
+        player.anims.play('left', true);
+      } else if(cursor.right.isDown){
+        player.setVelocityX(160);
+        player.anims.play('right', true);
+      } else {
+        player.setVelocityX(0);
+        player.anims.play('turn');
+      }
+
+      /*If the player holds the up key and is touching
+        the ground the Avatar receives a Velocity-Boost
+        upwards */
+      if(cursor.up.isDown && player.body.touching.down){
+        player.setVelocityY(-330);
+      }
+      /*Vertical and horizontal movement have to be
+        in different if-structures so both are possible
+        simultaneously*/
+    };
 
 </script>
 
