@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <title>Phaser 3 Game</title>
-    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <!--src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"-->
+    <script src="phaser.js"></script>
     <style type="text/css">
         body {
             margin: 0;
@@ -36,7 +37,12 @@
     var platforms;
     var player;
     var cursor;
-
+    var star;
+    var score = 0;
+    var scoreText;
+    var bombs;
+    var gameOver = false;
+//--PRELOAD---------------------------------------------------------------------
     function preload (){
       //this.load.image(name, path) for objects without animation
       this.load.image('sky', 'assets/images/sky.png');
@@ -46,7 +52,7 @@
       //this.load.spritesheet(name, path) for objects with animation
       this.load.spritesheet('dude', 'assets/images/dude.png', { frameWidth: 32, frameHeight:48 });
     };
-
+//--CREATE----------------------------------------------------------------------
     function create (){
       //this.add.image(X, Y, name) to add the loaded image 'name' in position X/Y
       //setOrigin(0, 0) -> sets anchor to the top left of the image (Default: Middle)
@@ -62,7 +68,7 @@
       player = this.physics.add.sprite(100, 450, 'dude'); //Player
       player.setBounce(0.2);
       player.setCollideWorldBounds(true);
-      player.body.setGravityY(300);
+      //player.body.setGravityY(300);
 
       //this.anims.create() for creating an animation
       /*The 'left' animation uses frames 0, 1, 2 and 3
@@ -88,15 +94,66 @@
         frameRate: 10,
         repeat: -1
       });
-      // Collosion Test
-      this.physics.add.collider(player, platforms);
 
       /*This populates the cursors object with four properties:
         up, down, left, right */
       cursor = this.input.keyboard.createCursorKeys();
-    };
 
+      /*Groups are able to take configuration objects to aid in their setup.
+        In this case the group configuration object has 3 parts:
+
+        First it sets the texture key to be the star image. This
+        means that any children created as a result of the config
+        object will all be given the star texture by default.
+
+        Then it sets the repeat value to be 11. Because it creates
+        1 child automatically, repeating 11 times means we'll get
+        12 in total.
+
+        The final part is setXY - this is used to set the position
+        of the 12 children the Group creates. Each child will be placed
+        starting at x: 12, y: 0 and with an x step of 70.
+        The 'step' values are a really handy way of spacing out a
+        Groups children during creation.
+
+        The next piece of code iterates all children in the Group and
+        gives them a random Y bounce value between 0.4 and 0.8. */
+      star = this.physics.add.group({
+        key: 'star',
+        repeat: 11,
+        setXY: { x: 12, y: 0, stepX: 70 }
+      });
+      star.children.iterate(function (child){
+        child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+      });
+
+      /*16 x 16 is the coordinate to display the text at.
+        'score: 0' is the default string to display and the
+        object that follows contains a font size and fill color. */
+      scoreText = this.add.text(16, 16, 'score: 0', {
+        fontSize: '32px',
+        fill: '#000'
+      });
+
+      bombs = this.physics.add.group();
+
+      /* Collosion and Overlap
+        (obj1, obj2, [func, null, this]) If obj1 and obj2 overlap/collide
+        an optional callback function that is called. The two objects will
+        be passed to this function in the same order in which they were
+        specified, unless colliding a Group vs. a Sprite, in which case
+        Sprite will always be the first parameter. */
+      this.physics.add.collider(player, platforms);
+      this.physics.add.collider(star, platforms);
+      this.physics.add.collider(bombs, platforms);
+      this.physics.add.overlap(player, star, collectStar, null, this);
+      this.physics.add.collider(player, bombs, hitBomb, null, this);
+    };
+//--UPDATE----------------------------------------------------------------------
     function update (){
+      if (gameOver){
+        return;
+      };
       /*If the player holds down the left/right key
         the Avatar receives a Velocity-Boost in that
         direction. Upon releasing either key the Boost
@@ -111,19 +168,51 @@
       } else {
         player.setVelocityX(0);
         player.anims.play('turn');
-      }
+      };
 
       /*If the player holds the up key and is touching
         the ground the Avatar receives a Velocity-Boost
         upwards */
       if(cursor.up.isDown && player.body.touching.down){
         player.setVelocityY(-330);
-      }
+      };
       /*Vertical and horizontal movement have to be
         in different if-structures so both are possible
         simultaneously*/
     };
+//------------------------------------------------------------------------------
+function collectStar(player, starThatGotHit){
+  /*The star has its physics body disabled and its
+    parent Game Object is made inactive and invisible,
+    which removes it from display. */
+  starThatGotHit.disableBody(true, true);
+  score += 10;
+  scoreText.setText('Score: ' + score);
 
+  /*countActive checks how many stars are left. If it's none the
+    iterate function re-enables all of the stars and reset their
+    y position to zero.
+    A random x coordinate on the opposite side of the screen is
+    generates. Then the bomb is created, it's set to collide with
+    the world, bounce, ignore gravity and have a random velocity. */
+  if (star.countActive(true) === 0){
+        star.children.iterate(function(child){
+            child.enableBody(true, child.x, 0, true, true);
+        });
+        var x = (player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
+        var bomb = bombs.create(x, 16, 'bomb');
+        bomb.setBounce(1);
+        bomb.setCollideWorldBounds(true);
+        bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+        bomb.allowGravity = false;
+    };
+};
+function hitBomb(player, bomb){
+    this.physics.pause();
+    player.setTint(0xff0000);
+    player.anims.play('turn');
+    gameOver = true;
+};
 </script>
 
 </body>
